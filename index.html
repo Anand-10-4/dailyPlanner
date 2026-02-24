@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Planner - Premium Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'dark-bg': '#0f172a',
+                        'dark-card': '#1e293b',
+                        'dark-border': '#334155',
+                        'neon-cyan': '#22d3ee',
+                        'neon-purple': '#a78bfa',
+                        'neon-coral': '#fb7185',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            transition: background-color 0.3s ease;
+        }
+
+        .task-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .task-card:hover {
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        .timeline-event {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .timeline-event:hover {
+            transform: translateX(2px);
+        }
+
+        .check-circle {
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            cursor: pointer;
+        }
+
+        .check-circle:hover {
+            transform: scale(1.1);
+        }
+
+        .check-circle.completed {
+            animation: checkPop 0.3s ease;
+        }
+
+        @keyframes checkPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .fab {
+            transition: all 0.3s ease;
+        }
+
+        .fab:hover {
+            transform: scale(1.1) rotate(90deg);
+        }
+
+        .sidebar-drawer {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-drawer.open {
+            transform: translateX(0);
+        }
+
+        .date-chip {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .date-chip:hover {
+            transform: translateY(-2px);
+        }
+
+        .date-chip.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .dark .date-chip.active {
+            background: linear-gradient(135deg, #22d3ee 0%, #a78bfa 100%);
+        }
+
+        .quick-action {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .quick-action:hover {
+            transform: translateY(-3px);
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .dark .glass-effect {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .modal {
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .timeline-event:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .undo-toast {
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar-drawer {
+                position: fixed;
+                left: 0;
+                top: 0;
+                height: 100vh;
+                z-index: 50;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .sidebar-drawer {
+                transform: translateX(0) !important;
+                position: relative;
+            }
+        }
+
+        .empty-state {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden bg-gradient-to-br from-gray-50 to-blue-50 dark:from-dark-bg dark:to-slate-900 transition-colors duration-300">
+    <!-- Mobile Menu Overlay -->
+    <div id="mobileOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden"></div>
+
+    <!-- Undo Toast -->
+    <div id="undoToast" class="hidden fixed bottom-24 right-8 bg-gray-800 dark:bg-gray-700 text-white px-6 py-4 rounded-2xl shadow-2xl z-50 undo-toast">
+        <div class="flex items-center gap-4">
+            <span id="undoMessage">Task deleted</span>
+            <button id="undoBtn" class="bg-white text-gray-800 px-4 py-2 rounded-xl font-semibold hover:bg-gray-100 transition-colors">
+                Undo
+            </button>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal glass-effect rounded-3xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white" id="modalTitle">Add Task</h2>
+                <button id="closeModal" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">
+                    ✕
+                </button>
+            </div>
+            <form id="taskForm" class="space-y-4">
+                <input type="hidden" id="taskId">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Task Name</label>
+                    <input type="text" id="taskName" required
+                        class="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-white focus:border-purple-500 dark:focus:border-neon-purple outline-none transition-colors"
+                        placeholder="Enter task name">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time</label>
+                    <input type="time" id="taskTime" required
+                        class="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-white focus:border-purple-500 dark:focus:border-neon-purple outline-none transition-colors">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (minutes)</label>
+                    <input type="number" id="taskDuration" required min="1" step="1"
+                        class="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card text-gray-800 dark:text-white focus:border-purple-500 dark:focus:border-neon-purple outline-none transition-colors"
+                        placeholder="e.g., 23, 45, 90">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Icon (Emoji)</label>
+                    <div class="grid grid-cols-6 gap-2" id="iconPicker">
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="💼">💼</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="📚">📚</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="🏋️">🏋️</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="🍽️">🍽️</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="☕">☕</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="💻">💻</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="🎨">🎨</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="🎵">🎵</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="📞">📞</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="🛒">🛒</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="🌅">🌅</button>
+                        <button type="button" class="icon-option p-3 text-2xl rounded-xl hover:bg-gray-100 dark:hover:bg-dark-border transition-colors" data-icon="🎯">🎯</button>
+                    </div>
+                    <input type="hidden" id="taskIcon" value="💼">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Color</label>
+                    <div class="grid grid-cols-6 gap-2">
+                        <button type="button" class="color-option w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 hover:scale-110 transition-transform" data-color="blue"></button>
+                        <button type="button" class="color-option w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 hover:scale-110 transition-transform" data-color="purple"></button>
+                        <button type="button" class="color-option w-10 h-10 rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 hover:scale-110 transition-transform" data-color="pink"></button>
+                        <button type="button" class="color-option w-10 h-10 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 hover:scale-110 transition-transform" data-color="green"></button>
+                        <button type="button" class="color-option w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 hover:scale-110 transition-transform" data-color="orange"></button>
+                        <button type="button" class="color-option w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 hover:scale-110 transition-transform" data-color="teal"></button>
+                    </div>
+                    <input type="hidden" id="taskColor" value="blue">
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="flex-1 bg-gradient-to-r from-violet-500 to-purple-600 dark:from-neon-purple dark:to-purple-600 text-white py-3 rounded-2xl font-semibold hover:shadow-lg transition-all">
+                        Save Task
+                    </button>
+                    <button type="button" id="cancelModal" class="px-6 bg-gray-200 dark:bg-dark-border text-gray-700 dark:text-gray-300 py-3 rounded-2xl font-semibold hover:bg-gray-300 dark:hover:bg-slate-600 transition-all">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar-drawer w-80 h-full bg-white dark:bg-dark-card shadow-xl overflow-y-auto glass-effect">
+            <div class="p-6">
+                <!-- Sidebar Header -->
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Inbox</h2>
+                    <button id="closeSidebar" class="lg:hidden text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl">
+                        ✕
+                    </button>
+                </div>
+
+                <!-- Task Templates -->
+                <div class="space-y-4" id="taskTemplates">
+                    <div class="task-card bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 rounded-3xl p-5 shadow-md border border-red-100 dark:border-red-800/50">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="bg-red-100 dark:bg-red-800/50 p-2.5 rounded-2xl text-2xl">
+                                👕
+                            </div>
+                            <button class="template-add bg-white dark:bg-dark-bg rounded-full w-8 h-8 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow text-lg text-gray-700 dark:text-white font-bold" data-template="laundry">
+                                +
+                            </button>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Do Laundry</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">30 min</p>
+                    </div>
+
+                    <div class="task-card bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-3xl p-5 shadow-md border border-blue-100 dark:border-blue-800/50">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="bg-blue-100 dark:bg-blue-800/50 p-2.5 rounded-2xl text-2xl">
+                                📚
+                            </div>
+                            <button class="template-add bg-white dark:bg-dark-bg rounded-full w-8 h-8 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow text-lg text-gray-700 dark:text-white font-bold" data-template="homework">
+                                +
+                            </button>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Do Homework</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">1 hour</p>
+                    </div>
+
+                    <div class="task-card bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-3xl p-5 shadow-md border border-green-100 dark:border-green-800/50">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="bg-green-100 dark:bg-green-800/50 p-2.5 rounded-2xl text-2xl">
+                                🛒
+                            </div>
+                            <button class="template-add bg-white dark:bg-dark-bg rounded-full w-8 h-8 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow text-lg text-gray-700 dark:text-white font-bold" data-template="shopping">
+                                +
+                            </button>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Grocery Shopping</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">45 min</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto">
+            <div class="max-w-4xl mx-auto p-4 lg:p-8">
+                <!-- Top Bar -->
+                <div class="flex items-center justify-between mb-6">
+                    <button id="menuToggle" class="lg:hidden bg-white dark:bg-dark-card p-2.5 rounded-2xl shadow-md text-2xl">
+                        ☰
+                    </button>
+                    <div class="flex items-center gap-3 ml-auto">
+                        <button id="darkModeToggle" class="bg-white dark:bg-dark-card p-2.5 rounded-2xl shadow-md hover:shadow-lg transition-all text-xl">
+                            <span class="dark:hidden">🌙</span>
+                            <span class="hidden dark:inline">☀️</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Month/Year Header -->
+                <div class="mb-6">
+                    <h1 class="text-3xl lg:text-4xl font-bold text-gray-800 dark:text-white mb-1" id="currentMonth">February 2026</h1>
+                    <p class="text-gray-500 dark:text-gray-400">Plan your perfect day</p>
+                </div>
+
+                <!-- Date Picker -->
+                <div class="mb-8 overflow-x-auto pb-2">
+                    <div class="flex gap-3 min-w-max" id="datePicker">
+                        <!-- Dates will be generated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Timeline Container -->
+                <div id="timelineContainer">
+                    <!-- Timeline will be rendered here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button id="fab" class="fab fixed bottom-8 right-8 bg-gradient-to-r from-red-400 to-pink-500 dark:from-neon-coral dark:to-pink-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center z-30 text-3xl font-light">
+        <span class="text-white">+</span>
+    </button>
+
+    <script>
+        // ============================================
+        // STATE MANAGEMENT
+        // ============================================
+        
+        class TaskManager {
+            constructor() {
+                this.tasks = this.loadTasks();
+                this.selectedDate = new Date();
+                this.editingTaskId = null;
+                this.undoStack = [];
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.generateDatePicker();
+                this.renderTimeline();
+                this.updateMonthDisplay();
+                this.initDarkMode();
+                this.setCurrentTime();
+            }
+
+            setCurrentTime() {
+                // Set current time in the time input when opening modal
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                document.getElementById('taskTime').value = `${hours}:${minutes}`;
+            }
+
+            loadTasks() {
+                const saved = localStorage.getItem('dailyPlannerTasks');
+                return saved ? JSON.parse(saved) : this.getDefaultTasks();
+            }
+
+            saveTasks() {
+                localStorage.setItem('dailyPlannerTasks', JSON.stringify(this.tasks));
+            }
+
+            getDefaultTasks() {
+                const today = new Date().toISOString().split('T')[0];
+                return [
+                    { id: this.generateId(), date: today, time: '08:00', name: 'Morning Routine', duration: 45, icon: '🌅', color: 'orange', completed: false },
+                    { id: this.generateId(), date: today, time: '09:00', name: 'Team Meeting', duration: 60, icon: '💼', color: 'blue', completed: false },
+                    { id: this.generateId(), date: today, time: '11:00', name: 'Deep Work Session', duration: 120, icon: '💻', color: 'purple', completed: false },
+                    { id: this.generateId(), date: today, time: '13:00', name: 'Lunch Break', duration: 60, icon: '🍽️', color: 'pink', completed: false },
+                    { id: this.generateId(), date: today, time: '15:00', name: 'Client Call', duration: 30, icon: '📞', color: 'teal', completed: false },
+                    { id: this.generateId(), date: today, time: '17:00', name: 'Gym Session', duration: 60, icon: '🏋️', color: 'green', completed: false },
+                ];
+            }
+
+            generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substr(2);
+            }
+
+            getTasksForDate(date) {
+                const dateStr = date.toISOString().split('T')[0];
+                const tasksForDay = this.tasks.filter(task => task.date === dateStr);
+                
+                // Separate completed and incomplete tasks
+                const incompleteTasks = tasksForDay.filter(task => !task.completed).sort((a, b) => a.time.localeCompare(b.time));
+                const completedTasks = tasksForDay.filter(task => task.completed).sort((a, b) => a.time.localeCompare(b.time));
+                
+                // Return incomplete tasks first, then completed tasks
+                return [...incompleteTasks, ...completedTasks];
+            }
+
+            addTask(taskData) {
+                const task = {
+                    id: this.generateId(),
+                    date: this.selectedDate.toISOString().split('T')[0],
+                    ...taskData,
+                    completed: false
+                };
+                this.tasks.push(task);
+                this.saveTasks();
+                this.renderTimeline();
+            }
+
+            updateTask(id, taskData) {
+                const index = this.tasks.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    this.tasks[index] = { ...this.tasks[index], ...taskData };
+                    this.saveTasks();
+                    this.renderTimeline();
+                }
+            }
+
+            deleteTask(id) {
+                const taskIndex = this.tasks.findIndex(t => t.id === id);
+                if (taskIndex !== -1) {
+                    const deletedTask = this.tasks[taskIndex];
+                    this.undoStack = [{ action: 'delete', task: deletedTask }]; // Keep only last action
+                    this.tasks.splice(taskIndex, 1);
+                    this.saveTasks();
+                    this.renderTimeline();
+                    this.showUndoToast('Task deleted');
+                }
+            }
+
+            undo() {
+                if (this.undoStack.length > 0) {
+                    const lastAction = this.undoStack.pop();
+                    if (lastAction.action === 'delete') {
+                        this.tasks.push(lastAction.task);
+                        this.saveTasks();
+                        this.renderTimeline();
+                        this.hideUndoToast();
+                    }
+                }
+            }
+
+            showUndoToast(message) {
+                const toast = document.getElementById('undoToast');
+                document.getElementById('undoMessage').textContent = message;
+                toast.classList.remove('hidden');
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    this.hideUndoToast();
+                }, 5000);
+            }
+
+            hideUndoToast() {
+                document.getElementById('undoToast').classList.add('hidden');
+            }
+
+            toggleComplete(id) {
+                const task = this.tasks.find(t => t.id === id);
+                if (task) {
+                    task.completed = !task.completed;
+                    this.saveTasks();
+                    this.renderTimeline();
+                }
+            }
+
+            // ============================================
+            // UI RENDERING
+            // ============================================
+
+            renderTimeline() {
+                const container = document.getElementById('timelineContainer');
+                const tasksForDay = this.getTasksForDate(this.selectedDate);
+
+                if (tasksForDay.length === 0) {
+                    container.innerHTML = this.renderEmptyState();
+                } else {
+                    container.innerHTML = tasksForDay.map(task => this.renderTask(task)).join('');
+                }
+            }
+
+            renderEmptyState() {
+                return `
+                    <div class="empty-state flex flex-col items-center justify-center py-20">
+                        <div class="text-8xl mb-4">📅</div>
+                        <h3 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Nothing planned yet</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-6">Add your first task to get started</p>
+                        <button onclick="taskManager.openModal()" class="bg-gradient-to-r from-violet-500 to-purple-600 dark:from-neon-purple dark:to-purple-600 text-white px-6 py-3 rounded-2xl font-semibold hover:shadow-lg transition-all">
+                            Create Task
+                        </button>
+                    </div>
+                `;
+            }
+
+            renderTask(task) {
+                const colorClasses = {
+                    blue: { bg: 'from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40', border: 'border-blue-400', fill: 'bg-blue-400' },
+                    purple: { bg: 'from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40', border: 'border-purple-400', fill: 'bg-purple-400' },
+                    pink: { bg: 'from-pink-100 to-rose-100 dark:from-pink-900/40 dark:to-rose-900/40', border: 'border-pink-400', fill: 'bg-pink-400' },
+                    green: { bg: 'from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40', border: 'border-green-400', fill: 'bg-green-400' },
+                    orange: { bg: 'from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40', border: 'border-orange-400', fill: 'bg-orange-400' },
+                    teal: { bg: 'from-teal-100 to-cyan-100 dark:from-teal-900/40 dark:to-cyan-900/40', border: 'border-teal-400', fill: 'bg-teal-400' }
+                };
+
+                const colors = colorClasses[task.color] || colorClasses.blue;
+                const completedClass = task.completed ? colors.fill : '';
+                const checkMark = task.completed ? '✓' : '';
+
+                return `
+                    <div class="timeline-event bg-white dark:bg-dark-card rounded-3xl p-6 shadow-md border border-gray-100 dark:border-dark-border mb-4 relative group" data-task-id="${task.id}">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">${this.formatTime(task.time)}</span>
+                            <div class="flex items-center gap-2">
+                                <button class="delete-btn text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors text-lg" onclick="taskManager.deleteTask('${task.id}')">
+                                    🗑️
+                                </button>
+                                <div class="check-circle w-6 h-6 rounded-full border-2 ${colors.border} ${completedClass} flex items-center justify-center cursor-pointer" onclick="taskManager.toggleComplete('${task.id}')">
+                                    <span class="text-white text-xs font-bold">${checkMark}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4" onclick="taskManager.editTask('${task.id}')">
+                            <div class="bg-gradient-to-br ${colors.bg} p-3 rounded-2xl text-2xl">
+                                ${task.icon}
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800 dark:text-white ${task.completed ? 'line-through opacity-60' : ''}">${task.name}</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">${task.duration} minutes</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            formatTime(time) {
+                const [hours, minutes] = time.split(':');
+                const hour = parseInt(hours);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const displayHour = hour % 12 || 12;
+                return `${displayHour}:${minutes} ${ampm}`;
+            }
+
+            generateDatePicker() {
+                const datePicker = document.getElementById('datePicker');
+                datePicker.innerHTML = '';
+                
+                // Get the base date for the picker (the selected date)
+                const baseDate = new Date(this.selectedDate);
+                
+                for (let i = -3; i <= 3; i++) {
+                    const date = new Date(baseDate);
+                    date.setDate(baseDate.getDate() + i);
+                    
+                    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                    const dayNum = date.getDate();
+                    const isSelected = this.isSameDay(date, this.selectedDate);
+                    
+                    const dateChip = document.createElement('div');
+                    dateChip.className = `date-chip flex flex-col items-center gap-1 px-5 py-3 rounded-2xl shadow-md ${isSelected ? 'active' : 'bg-white dark:bg-dark-card'}`;
+                    dateChip.innerHTML = `
+                        <span class="text-xs font-medium ${isSelected ? 'text-white' : 'text-gray-500 dark:text-gray-400'}">${dayName}</span>
+                        <span class="text-lg font-bold ${isSelected ? 'text-white' : 'text-gray-800 dark:text-white'}">${dayNum}</span>
+                    `;
+                    
+                    dateChip.addEventListener('click', () => {
+                        this.selectedDate = new Date(date);
+                        this.generateDatePicker();
+                        this.renderTimeline();
+                        this.updateMonthDisplay();
+                    });
+                    
+                    datePicker.appendChild(dateChip);
+                }
+            }
+
+            isSameDay(date1, date2) {
+                return date1.toISOString().split('T')[0] === date2.toISOString().split('T')[0];
+            }
+
+            updateMonthDisplay() {
+                const currentMonth = document.getElementById('currentMonth');
+                currentMonth.textContent = this.selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            }
+
+            // ============================================
+            // MODAL MANAGEMENT
+            // ============================================
+
+            openModal(taskId = null) {
+                const modal = document.getElementById('taskModal');
+                const form = document.getElementById('taskForm');
+                const title = document.getElementById('modalTitle');
+                
+                // Set current time
+                this.setCurrentTime();
+                
+                if (taskId) {
+                    this.editingTaskId = taskId;
+                    const task = this.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        title.textContent = 'Edit Task';
+                        document.getElementById('taskId').value = task.id;
+                        document.getElementById('taskName').value = task.name;
+                        document.getElementById('taskTime').value = task.time;
+                        document.getElementById('taskDuration').value = task.duration;
+                        document.getElementById('taskIcon').value = task.icon;
+                        document.getElementById('taskColor').value = task.color;
+                        
+                        // Highlight selected icon and color
+                        this.highlightSelected('.icon-option', task.icon, 'data-icon');
+                        this.highlightSelected('.color-option', task.color, 'data-color');
+                    }
+                } else {
+                    this.editingTaskId = null;
+                    title.textContent = 'Add Task';
+                    form.reset();
+                    this.setCurrentTime();
+                    document.getElementById('taskIcon').value = '💼';
+                    document.getElementById('taskColor').value = 'blue';
+                }
+                
+                modal.classList.remove('hidden');
+            }
+
+            closeModal() {
+                const modal = document.getElementById('taskModal');
+                modal.classList.add('hidden');
+                this.editingTaskId = null;
+            }
+
+            highlightSelected(selector, value, attribute) {
+                document.querySelectorAll(selector).forEach(el => {
+                    el.classList.remove('ring-2', 'ring-purple-500');
+                    if (el.getAttribute(attribute) === value) {
+                        el.classList.add('ring-2', 'ring-purple-500');
+                    }
+                });
+            }
+
+            editTask(taskId) {
+                this.openModal(taskId);
+            }
+
+            // ============================================
+            // EVENT LISTENERS
+            // ============================================
+
+            setupEventListeners() {
+                // Mobile menu
+                document.getElementById('menuToggle').addEventListener('click', () => {
+                    document.getElementById('sidebar').classList.add('open');
+                    document.getElementById('mobileOverlay').classList.remove('hidden');
+                });
+
+                document.getElementById('closeSidebar').addEventListener('click', () => {
+                    document.getElementById('sidebar').classList.remove('open');
+                    document.getElementById('mobileOverlay').classList.add('hidden');
+                });
+
+                document.getElementById('mobileOverlay').addEventListener('click', () => {
+                    document.getElementById('sidebar').classList.remove('open');
+                    document.getElementById('mobileOverlay').classList.add('hidden');
+                });
+
+                // FAB
+                document.getElementById('fab').addEventListener('click', () => {
+                    this.openModal();
+                });
+
+                // Modal
+                document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
+                document.getElementById('cancelModal').addEventListener('click', () => this.closeModal());
+
+                // Undo
+                document.getElementById('undoBtn').addEventListener('click', () => {
+                    this.undo();
+                });
+
+                // Task form
+                document.getElementById('taskForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    
+                    const taskData = {
+                        name: document.getElementById('taskName').value,
+                        time: document.getElementById('taskTime').value,
+                        duration: parseInt(document.getElementById('taskDuration').value),
+                        icon: document.getElementById('taskIcon').value,
+                        color: document.getElementById('taskColor').value
+                    };
+
+                    if (this.editingTaskId) {
+                        this.updateTask(this.editingTaskId, taskData);
+                    } else {
+                        this.addTask(taskData);
+                    }
+
+                    this.closeModal();
+                });
+
+                // Icon picker
+                document.querySelectorAll('.icon-option').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const icon = btn.getAttribute('data-icon');
+                        document.getElementById('taskIcon').value = icon;
+                        this.highlightSelected('.icon-option', icon, 'data-icon');
+                    });
+                });
+
+                // Color picker
+                document.querySelectorAll('.color-option').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const color = btn.getAttribute('data-color');
+                        document.getElementById('taskColor').value = color;
+                        this.highlightSelected('.color-option', color, 'data-color');
+                    });
+                });
+
+                // Template add buttons
+                document.querySelectorAll('.template-add').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const template = btn.getAttribute('data-template');
+                        this.addTemplateTask(template);
+                    });
+                });
+            }
+
+            addTemplateTask(template) {
+                const now = new Date();
+                const currentHour = String(now.getHours()).padStart(2, '0');
+                const currentMinute = String(now.getMinutes()).padStart(2, '0');
+                const currentTime = `${currentHour}:${currentMinute}`;
+                
+                const templates = {
+                    laundry: { name: 'Do Laundry', time: currentTime, duration: 30, icon: '👕', color: 'pink' },
+                    homework: { name: 'Do Homework', time: currentTime, duration: 60, icon: '📚', color: 'blue' },
+                    shopping: { name: 'Grocery Shopping', time: currentTime, duration: 45, icon: '🛒', color: 'green' }
+                };
+
+                const taskData = templates[template];
+                if (taskData) {
+                    this.addTask(taskData);
+                    // Close sidebar on mobile
+                    if (window.innerWidth < 1024) {
+                        document.getElementById('sidebar').classList.remove('open');
+                        document.getElementById('mobileOverlay').classList.add('hidden');
+                    }
+                }
+            }
+
+            // ============================================
+            // DARK MODE
+            // ============================================
+
+            initDarkMode() {
+                const darkMode = localStorage.getItem('darkMode') === 'true';
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                }
+
+                document.getElementById('darkModeToggle').addEventListener('click', () => {
+                    document.documentElement.classList.toggle('dark');
+                    const isDark = document.documentElement.classList.contains('dark');
+                    localStorage.setItem('darkMode', isDark);
+                });
+            }
+        }
+
+        // Initialize the app
+        const taskManager = new TaskManager();
+    </script>
+</body>
+</html>
